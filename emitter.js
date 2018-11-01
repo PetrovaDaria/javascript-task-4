@@ -27,7 +27,7 @@ function getEmitter() {
                 'times': params.times,
                 'frequency': params.frequency,
                 'callCount': 0
-            }, configurable: true });
+            }, configurable: true, enumerable: true });
         },
 
         checkTimes: function (context, eventConditions) {
@@ -65,7 +65,11 @@ function getEmitter() {
          */
         off: function (event, context) {
             console.info(event, context);
-            delete context[event];
+            for (let key in context) {
+                if (key.startsWith(event)) {
+                    delete context[key];
+                }
+            }
 
             return this;
         },

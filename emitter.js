@@ -66,7 +66,7 @@ function getEmitter() {
         off: function (event, context) {
             console.info(event, context);
             for (let key in context) {
-                if (key.startsWith(event)) {
+                if (key.startsWith(event + '.') || key === event) {
                     delete context[key];
                 }
             }

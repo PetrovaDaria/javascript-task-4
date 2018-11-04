@@ -56,7 +56,7 @@ function getNameSpaces(event) {
 function getNameSpacesStartedWith(event, events) {
     const nameSpaces = [];
     Object.keys(events).forEach(function (e) {
-        if (e === event || e.startsWith(e + '.')) {
+        if (e === event || e.startsWith(event + '.')) {
             nameSpaces.push(e);
         }
     });
@@ -120,7 +120,7 @@ function getEmitter() {
                             } else if (params.frequency !== undefined) {
                                 checkFrequency(context, params);
                             } else {
-                                params.handler.call(context);
+                                params.handler.apply(context);
                             }
                         });
                     });

@@ -53,6 +53,17 @@ function getNameSpaces(event) {
     return nameSpaces;
 }
 
+function getNameSpacesStartedWith(event, events) {
+    const nameSpaces = [];
+    Object.keys(events).forEach(function (e) {
+        if (e === event || e.startsWith(e + '.')) {
+            nameSpaces.push(e);
+        }
+    });
+
+    return nameSpaces;
+}
+
 /**
  * Возвращает новый emitter
  * @returns {Object}
@@ -84,7 +95,9 @@ function getEmitter() {
          */
         off: function (event, context) {
             console.info(event, context);
-            events[event].delete(context);
+            getNameSpacesStartedWith(event, events).forEach(function (e) {
+                events[e].delete(context);
+            });
 
             return this;
         },

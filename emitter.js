@@ -6,41 +6,61 @@
  */
 const isStar = true;
 
+function checkEvent(event, events) {
+    if (!(event in events)) {
+        events[event] = new Map();
+    }
+}
+
+function checkContext(event, context, events) {
+    if (!(events[event].has(context))) {
+        events[event].set(context, []);
+    }
+}
+
+function addToEvent(event, context, params, events) {
+    checkEvent(event, events);
+    checkContext(event, context, events);
+    const obj = { 'handler': params.handler, 'times': params.times,
+        'frequency': params.frequency, 'callsCount': 0 };
+    events[event].get(context).push(obj);
+}
+
+function checkTimes(context, params) {
+    if (params.times >= params.callsCount) {
+        params.handler.apply(context);
+    }
+}
+
+function checkFrequency(context, params) {
+    if (((params.callsCount - 1) % params.frequency) === 0) {
+        params.handler.apply(context);
+    }
+}
+
+function getNameSpaces(event) {
+    const nameSpaces = [];
+    const ee = event.split('.');
+    let currentNameSpace = '';
+    ee.forEach(function (e) {
+        if (currentNameSpace.length !== 0) {
+            currentNameSpace += '.';
+        }
+        currentNameSpace += e;
+        nameSpaces.unshift(currentNameSpace);
+    });
+
+    return nameSpaces;
+}
+
 /**
  * Возвращает новый emitter
  * @returns {Object}
  */
 function getEmitter() {
+    const events = {};
+
     return {
-
-        contexts: [],
-
-        checkContext: function (context) {
-            if (this.contexts.indexOf(context) === -1) {
-                this.contexts.push(context);
-            }
-        },
-
-        createContextEvent: function (params) {
-            Object.defineProperty(params.context, params.event, { value: {
-                'handler': params.handler,
-                'times': params.times,
-                'frequency': params.frequency,
-                'callCount': 0
-            }, configurable: true, enumerable: true });
-        },
-
-        checkTimes: function (context, eventConditions) {
-            if (eventConditions.times >= eventConditions.callCount) {
-                eventConditions.handler.apply(context);
-            }
-        },
-
-        checkFrequency: function (context, eventConditions) {
-            if ((eventConditions.callCount - 1) % eventConditions.frequency === 0) {
-                eventConditions.handler.apply(context);
-            }
-        },
 
         /**
          * Подписаться на событие
@@ -51,8 +71,7 @@ function getEmitter() {
          */
         on: function (event, context, handler) {
             console.info(event, context, handler);
-            this.checkContext(context);
-            this.createContextEvent({ 'event': event, 'context': context, 'handler': handler });
+            addToEvent(event, context, { 'handler': handler }, events);
 
             return this;
         },
@@ -65,11 +84,7 @@ function getEmitter() {
          */
         off: function (event, context) {
             console.info(event, context);
-            for (let key in context) {
-                if (key.startsWith(event + '.') || key === event) {
-                    delete context[key];
-                }
-            }
+            events[event].delete(context);
 
             return this;
         },
@@ -81,39 +96,25 @@ function getEmitter() {
          */
         emit: function (event) {
             console.info(event);
-            const nameSpaces = this.getNameSpaces(event);
-            nameSpaces.forEach(nameSpace => {
-                this.contexts.forEach(context => {
-                    if (nameSpace in context) {
-                        const eventConditions = context[nameSpace];
-                        eventConditions.callCount++;
-                        if (eventConditions.times !== undefined) {
-                            this.checkTimes(context, eventConditions);
-                        } else if (eventConditions.frequency !== undefined) {
-                            this.checkFrequency(context, eventConditions);
-                        } else {
-                            eventConditions.handler.apply(context);
-                        }
-                    }
-                });
+            const nameSpaces = getNameSpaces(event);
+            nameSpaces.forEach(function (e) {
+                if (e in events) {
+                    events[e].forEach(function (handlers, context) {
+                        handlers.forEach(function (params) {
+                            params.callsCount++;
+                            if (params.times !== undefined) {
+                                checkTimes(context, params);
+                            } else if (params.frequency !== undefined) {
+                                checkFrequency(context, params);
+                            } else {
+                                params.handler.call(context);
+                            }
+                        });
+                    });
+                }
             });
 
             return this;
-        },
-
-        getNameSpaces: function (event) {
-            const nameSpaces = [];
-            const events = event.split('.');
-            let currentNameSpace = '';
-            events.forEach(function (e) {
-                if (currentNameSpace.length !== 0) {
-                    currentNameSpace += '.';
-                }
-                currentNameSpace += e;
-                nameSpaces.unshift(currentNameSpace);
-            });
-
-            return nameSpaces;
         },
 
         /**
@@ -130,9 +131,7 @@ function getEmitter() {
             if (times <= 0) {
                 return this.on(event, context, handler);
             }
-            this.checkContext(context);
-            this.createContextEvent({ 'event': event, 'context': context,
-                'handler': handler, 'times': times });
+            addToEvent(event, context, { 'handler': handler, 'times': times }, events);
 
             return this;
         },
@@ -151,14 +150,14 @@ function getEmitter() {
             if (frequency <= 0) {
                 return this.on(event, context, handler);
             }
-            this.checkContext(context);
-            this.createContextEvent({ 'event': event, 'context': context,
-                'handler': handler, 'frequency': frequency });
+            addToEvent(event, context, { 'handler': handler,
+                'frequency': frequency }, events);
 
             return this;
         }
     };
 }
+
 
 module.exports = {
     getEmitter,
